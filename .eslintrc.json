@@ -12,9 +12,14 @@
     "no-param-reassign": "off",
     "no-return-await": "off",
     "no-underscore-dangle": "off",
+    "no-shadow": "off",
+    "no-var": "warn",
+    "vars-on-top": "off",
+    "block-scoped-var": "off",
+    "prefer-object-spread": "off",
+    "prefer-const": "off",
     "class-methods-use-this": "off",
     "prefer-destructuring": ["error", { "object": true, "array": false }],
-    "no-unused-vars": ["error", { "argsIgnorePattern": "req|res|next|val" }]
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "req|res|next|val" }]
   }
 }
-// off - warn - error
