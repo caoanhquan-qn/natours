@@ -1,72 +1,36 @@
 const Tour = require('../models/tourModel');
+const APIFeatures = require('../utils/apiFeatures');
+const AppError = require('../utils/appError');
+const catchAsync = require('../utils/catchAsync');
 
 // HANDLER FUNCTIONS
-exports.getAllTours = async (req, res) => {
+
+exports.getAllTours = catchAsync(async (req, res) => {
+  const features = new APIFeatures(Tour.find(), req.query)
+    .filter()
+    .sort()
+    .fields();
+  // .paginate();
+
+  // EXECUTE QUERY
+  const tours = await features.query;
+
+  // SEND RESPONSE
+  res.status(200).json({
+    status: 'success',
+    results: tours.length,
+    data: {
+      tours,
+    },
+  });
+});
+
+exports.getTour = async (req, res, next) => {
   try {
-    // BUILD QUERY
-    let queryObj = Object.assign({}, req.query);
-    const excludedFields = ['page', 'sort', 'limit', 'fields'];
-    excludedFields.forEach((el) => delete queryObj[el]);
-
-    // ADVANCED FILTERING
-    const queryStr = JSON.stringify(queryObj);
-    queryObj = JSON.parse(
-      queryStr.replace(/\b(gte|gt|lt|lte)\b/g, (match) => `$${match}`)
-    );
-
-    const query = Tour.find(queryObj);
-
-    // SORTING
-    if (Object.prototype.hasOwnProperty.call(req.query, 'sort')) {
-      const sortBy = req.query.sort.split(',').join(' ');
-      query.sort(sortBy);
-    } else {
-      query.sort('-createdAt');
+    const tour = await Tour.findById(req.params.id); // Tour.findOne({_id: req.params.id})
+    if (!tour) {
+      throw new AppError(`${req.originalUrl} can't be found ⛔️`, 404);
     }
-
-    // FIELDS LIMITING
-    if (Object.prototype.hasOwnProperty.call(req.query, 'fields')) {
-      const fieldsBy = req.query.fields.split(',').join(' ');
-      query.select(fieldsBy);
-    } else {
-      query.select('-__v');
-    }
-
-    // PAGINATION
-
-    const limit = Number(req.query.limit) || 5;
-    const currentPage = Number(req.query.page) || 1;
-    const numOfPageSkip = currentPage - 1;
-    const numOfDocumentSkip = numOfPageSkip * limit;
-    query.skip(numOfDocumentSkip).limit(limit);
-
-    if (Object.prototype.hasOwnProperty.call(req.query, 'page')) {
-      const numTours = await Tour.countDocuments();
-      if (numOfDocumentSkip >= numTours)
-        throw new Error('This page does not exist');
-    }
-
-    // EXECUTE QUERY
-    const tours = await query;
-
-    // SEND RESPONSE
-    res.status(200).json({
-      status: 'success',
-      results: tours.length,
-      data: {
-        tours,
-      },
-    });
-  } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
-  }
-};
-
-exports.getTour = async (req, res) => {
-  try {
-    const tour = await Tour.findById(req.params.id);
-    // Tour.findOne({_id: req.params.id})
-
     res.status(200).json({
       status: 'success',
       data: {
@@ -74,30 +38,29 @@ exports.getTour = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
+    next(error);
   }
 };
 
-exports.createTour = async (req, res) => {
-  try {
-    const newTour = await Tour.create(req.body);
-    res.status(201).json({
-      status: 'success',
-      data: {
-        tour: newTour,
-      },
-    });
-  } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
-  }
-};
+exports.createTour = catchAsync(async (req, res) => {
+  const newTour = await Tour.create(req.body);
+  res.status(201).json({
+    status: 'success',
+    data: {
+      tour: newTour,
+    },
+  });
+});
 
-exports.updateTour = async (req, res) => {
+exports.updateTour = async (req, res, next) => {
   try {
     const updatedTour = await Tour.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     });
+    if (!updatedTour) {
+      throw new AppError(`${req.originalUrl} can't be found ⛔️`, 404);
+    }
     res.status(200).json({
       status: 'success',
       data: {
@@ -105,16 +68,19 @@ exports.updateTour = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
+    next(error);
   }
 };
 
-exports.deleteTour = async (req, res) => {
+exports.deleteTour = async (req, res, next) => {
   try {
-    await Tour.findByIdAndDelete(req.params.id);
+    const deletedTour = await Tour.findByIdAndDelete(req.params.id);
+    if (!deletedTour) {
+      throw new AppError(`${req.originalUrl} can't be found ⛔️`, 404);
+    }
     res.status(204).json({ status: 'success', data: null });
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
+    next(error);
   }
 };
 exports.aliasTopTours = (req, res, next) => {
@@ -124,4 +90,77 @@ exports.aliasTopTours = (req, res, next) => {
     fields: 'name,price,ratingsAverage,summary,difficulty',
   };
   next();
+};
+exports.getTourStats = async (req, res) => {
+  try {
+    const stats = await Tour.aggregate([
+      { $match: { ratingsAverage: { $gte: 4.5 } } },
+      {
+        $group: {
+          _id: '$difficulty',
+          numTours: { $sum: 1 },
+          numRatings: { $sum: '$ratingsQuantity' },
+          avgRating: { $avg: '$ratingsAverage' },
+          avgPrice: { $avg: '$price' },
+          minPrice: { $min: '$price' },
+          maxPrice: { $max: '$price' },
+        },
+      },
+      { $sort: { avgPrice: 1 } },
+      // { $match: { _id: { $ne: 'easy' } } },
+    ]);
+    res.status(200).json({
+      status: 'success',
+      data: {
+        stats,
+      },
+    });
+  } catch (error) {
+    res.status(400).json({ status: 'fail', message: error.message });
+  }
+};
+
+exports.getMonthlyPlan = async (req, res) => {
+  try {
+    const year = req.params.year * 1;
+    const plan = await Tour.aggregate([
+      { $unwind: '$startDates' },
+      {
+        $match: {
+          startDates: {
+            $gte: new Date(`${year}-01-01`),
+            $lte: new Date(`${year}-12-31`),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { $month: '$startDates' },
+          numTours: { $sum: 1 },
+          tours: { $push: '$name' },
+        },
+      },
+      { $addFields: { month: '$_id' } },
+      {
+        $project: {
+          _id: 0,
+        },
+      },
+      {
+        $sort: {
+          numTours: -1,
+        },
+      },
+      { $limit: 12 },
+    ]);
+    res.status(200).json({
+      status: 'success',
+      results: plan.length,
+      data: {
+        plan,
+      },
+    });
+  } catch (error) {
+    res.status(400).json({ status: 'fail', message: error.message });
+  }
 };
