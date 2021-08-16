@@ -1,55 +1,70 @@
-const fs = require('fs');
-// READ FILES
-const users = JSON.parse(
-  fs.readFileSync(`${__dirname}/../dev-data/data/users.json`, 'utf-8')
-);
-// Users route
-exports.getAllUsers = (req, res) => {
-  res
-    .status(200)
-    .json({ status: 'success', results: users.length, data: { users } });
-};
+const catchAsync = require('../utils/catchAsync');
+const APIFeatures = require('../utils/apiFeatures');
+const User = require('../models/userModel');
 
-const getNewUserId = () => {
-  const lastUserId = users[users.length - 1]._id;
-  const newThreeLastDigits = parseInt(lastUserId.slice(-3)) + 1;
-  return lastUserId.slice(0, lastUserId.length - 3).concat(newThreeLastDigits);
-};
+// HTTP verb requests
 
-exports.checkId = (req, res, next, val) => {
-  const user = users.find((user) => user._id === val);
-  if (!user) {
-    return res.status(404).json({ status: 'fail', message: 'Invalid ID' });
-  }
-  next();
-};
+exports.getAllUsers = catchAsync(async (req, res, next) => {
+  const apiFeatures = new APIFeatures(User.find(), req.query);
+  const users = await apiFeatures.query;
 
-exports.getUser = (req, res) => {
-  const user = users.find((user) => user._id === req.params.id);
-  res.status(200).json({ status: 'success', data: { user } });
-};
-exports.createUser = (req, res) => {
-  const newId = getNewUserId();
-  const newUser = Object.assign({ _id: newId }, req.body);
-  users.push(newUser);
-  fs.writeFile(
-    `${__dirname}/dev-data/data/users.json`,
-    JSON.stringify(users),
-    (err) => {
-      res.status(201).json({
-        status: 'success',
-        data: {
-          user: newUser,
-        },
-      });
+  res.status(200).json({
+    status: 'success',
+    results: users.length,
+    data: {
+      users,
+    },
+  });
+});
+
+exports.getUser = catchAsync(async (req, res, next) => {
+  console.log(req.params);
+  const user = await User.findOne(req.params.email).exec();
+  res.status(200).json({
+    status: 'success',
+    data: {
+      user,
+    },
+  });
+});
+
+exports.createUser = catchAsync(async (req, res, next) => {
+  const newUser = await User.create({
+    name: req.body.name,
+    email: req.body.email,
+    password: req.body.password,
+    passwordConfirm: req.body.passwordConfirm,
+  });
+
+  res.status(201).json({
+    status: 'success',
+    data: {
+      user: newUser,
+    },
+  });
+});
+
+exports.updateUser = catchAsync(async (req, res, next) => {
+  const updatedUser = await User.findOneAndUpdate(
+    { email: req.body.email },
+    req.body,
+    {
+      new: true,
+      runValidators: true,
     }
   );
-};
-exports.updateUser = (req, res) => {
-  const user = users.find((user) => user._id === req.params.id);
-  const updatedUser = Object.assign({ _id: user._id }, req.body);
-  res.status(200).json({ status: 'success', data: { user: updatedUser } });
-};
-exports.deleteUser = (req, res) => {
-  res.status(204).json({ status: 'success', data: null });
-};
+  res.status(200).json({
+    status: 'success',
+    data: {
+      user: updatedUser,
+    },
+  });
+});
+
+exports.deleteUser = catchAsync(async (req, res, next) => {
+  await User.findOneAndDelete({ email: req.body.email });
+  res.status(204).json({
+    status: 'success',
+    data: null,
+  });
+});

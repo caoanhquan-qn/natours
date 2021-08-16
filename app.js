@@ -36,18 +36,10 @@ app.use(express.static(`${__dirname}/public`));
 app.use('/api/v1/tours', tourRouter);
 app.use('/api/v1/users', userRouter);
 
-//
-app.all('*', (req, res, next) => {
-  const err = new AppError(
-    `${req.originalUrl} can't be found on this server ⛔️`,
-    404
-  );
-  next(err);
-});
-
 // GLOBAL ERROR HANDLING MIDDLEWARE
 app.use(errorController);
 
+// LOAD HOMEPAGE
 const loadHomePage = (req, res) => {
   res.status(200).json({
     status: 'success',
@@ -60,10 +52,14 @@ const loadHomePage = (req, res) => {
 };
 
 app.get('/', loadHomePage);
-// app.get('/api/v1/tours', getAllTours);
-// app.get('/api/v1/tours/:id', getTour);
-// app.post('/api/v1/tours', createTour);
-// app.patch('/api/v1/tours/:id', updateTour);
-// app.delete('/api/v1/tours/:id', deleteTour);
+
+// HANDLE UNHANDLED ROUTES
+app.all('*', (req, res, next) => {
+  const err = new AppError(
+    `${req.originalUrl} can't be found on this server ⛔️`,
+    404
+  );
+  next(err);
+});
 
 module.exports = app;
