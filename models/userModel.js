@@ -23,6 +23,7 @@ const userSchema = new Schema({
     type: String,
     required: [true, 'Please provide your email'],
     unique: true,
+    // this only works on create and save
     validate: [validator.isEmail, 'Please provide a valid email'],
     lowercase: true,
   },
@@ -51,6 +52,11 @@ const userSchema = new Schema({
   },
   passwordResetToken: String,
   passwordResetExpiry: Date,
+  active: {
+    type: Boolean,
+    default: true,
+    select: false,
+  },
 });
 
 userSchema.pre('save', async function (next) {
@@ -64,6 +70,11 @@ userSchema.pre('save', function (next) {
   if (!this.isModified('password') || this.isNew) return next();
   this.passwordChangedAt = Date.now() - 1000;
 
+  next();
+});
+
+userSchema.pre(/^find/, function (next) {
+  this.find({ active: true });
   next();
 });
 
