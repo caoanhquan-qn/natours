@@ -1,7 +1,13 @@
 const Tour = require('../models/tourModel');
 const APIFeatures = require('../utils/apiFeatures');
-const AppError = require('../utils/appError');
+// const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
+const {
+  createFactoryFunction,
+  getFactoryFunction,
+  updateFactoryFunction,
+  deleteFactoryFunction,
+} = require('./handlerFactory');
 
 // HANDLER FUNCTIONS
 
@@ -25,64 +31,11 @@ exports.getAllTours = catchAsync(async (req, res) => {
   });
 });
 
-exports.getTour = async (req, res, next) => {
-  try {
-    const tour = await Tour.findById(req.params.id); // Tour.findOne({_id: req.params.id})
-    if (!tour) {
-      throw new AppError(`${req.originalUrl} can't be found ⛔️`, 404);
-    }
-    res.status(200).json({
-      status: 'success',
-      data: {
-        tour,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+exports.getTour = getFactoryFunction(Tour, 'tour');
+exports.createTour = createFactoryFunction(Tour, 'tour');
+exports.updateTour = updateFactoryFunction(Tour, 'tour');
+exports.deleteTour = deleteFactoryFunction(Tour);
 
-exports.createTour = catchAsync(async (req, res) => {
-  const newTour = await Tour.create(req.body);
-  res.status(201).json({
-    status: 'success',
-    data: {
-      tour: newTour,
-    },
-  });
-});
-
-exports.updateTour = async (req, res, next) => {
-  try {
-    const updatedTour = await Tour.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-    if (!updatedTour) {
-      throw new AppError(`${req.originalUrl} can't be found ⛔️`, 404);
-    }
-    res.status(200).json({
-      status: 'success',
-      data: {
-        tour: updatedTour,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.deleteTour = async (req, res, next) => {
-  try {
-    const deletedTour = await Tour.findByIdAndDelete(req.params.id);
-    if (!deletedTour) {
-      throw new AppError(`${req.originalUrl} can't be found ⛔️`, 404);
-    }
-    res.status(204).json({ status: 'success', data: null });
-  } catch (error) {
-    next(error);
-  }
-};
 exports.aliasTopTours = (req, res, next) => {
   req.query = {
     sort: '-ratingsAverage,price',

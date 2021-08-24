@@ -7,6 +7,7 @@ const xss = require('xss-clean');
 const hpp = require('hpp');
 const tourRouter = require('./routes/tourRoutes');
 const userRouter = require('./routes/userRoutes');
+const reviewRouter = require('./routes/reviewRoutes');
 const AppError = require('./utils/appError');
 const errorController = require('./controllers/errorController');
 
@@ -65,6 +66,7 @@ if (process.env.NODE_ENV === 'development') {
 //
 app.use('/api/v1/tours', tourRouter);
 app.use('/api/v1/users', userRouter);
+app.use('/api/v1/reviews', reviewRouter);
 
 // GLOBAL ERROR HANDLING MIDDLEWARE
 app.use(errorController);

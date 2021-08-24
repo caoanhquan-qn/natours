@@ -13,6 +13,9 @@ const {
 } = require('../controllers/tourController');
 
 const { protect, restrictTo } = require('../controllers/authController');
+const reviewRouter = require('./reviewRoutes');
+
+tourRouter.use('/:tourId/reviews', reviewRouter);
 
 tourRouter.route('/top-5-best-tours').get(aliasTopTours, getAllTours);
 tourRouter.route('/get-tour-stats').get(getTourStats);
